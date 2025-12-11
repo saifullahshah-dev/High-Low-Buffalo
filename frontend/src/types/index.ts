@@ -22,3 +22,9 @@ export interface UserSettings {
   herds: Herd[];
   friends: string[]; // Simple list of friend names/identifiers
 }
+
+export interface User {
+  id: string;
+  email: string;
+  name?: string;
+}

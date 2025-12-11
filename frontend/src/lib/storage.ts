@@ -1,8 +1,11 @@
-import { Reflection, UserSettings } from "@/types";
+import { Reflection, UserSettings, User } from "@/types";
+import { v4 as uuidv4 } from 'uuid';
 
 const STORAGE_KEYS = {
   REFLECTIONS: 'hlb_reflections',
   USER_SETTINGS: 'hlb_user_settings',
+  AUTH_TOKEN: 'hlb_auth_token', // New: for mock auth token
+  CURRENT_USER: 'hlb_current_user', // New: for mock current user
 };
 
 export const getReflections = (): Reflection[] => {
@@ -74,4 +77,49 @@ export const saveUserSettings = (settings: UserSettings): void => {
   } catch (error) {
     console.error("Failed to save user settings to localStorage", error);
   }
+};
+
+// --- Mock Authentication Functions ---
+
+export const getAuthToken = (): string | null => {
+  return localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN);
+};
+
+export const getCurrentUser = (): User | null => {
+  const userData = localStorage.getItem(STORAGE_KEYS.CURRENT_USER);
+  return userData ? JSON.parse(userData) : null;
+};
+
+export const loginUser = async (email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
+  // Simulate API call
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      if (email === "test@example.com" && password === "password") {
+        const mockUser: User = { id: uuidv4(), email, name: "Test User" };
+        localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, "mock_jwt_token");
+        localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(mockUser));
+        resolve({ success: true, message: "Login successful!", user: mockUser });
+      } else {
+        resolve({ success: false, message: "Invalid email or password." });
+      }
+    }, 500);
+  });
+};
+
+export const registerUser = async (email: string, password: string): Promise<{ success: boolean; message: string; user?: User }> => {
+  // Simulate API call
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // In a real app, you'd check if email already exists
+      const mockUser: User = { id: uuidv4(), email, name: "New User" };
+      localStorage.setItem(STORAGE_KEYS.AUTH_TOKEN, "mock_jwt_token_new");
+      localStorage.setItem(STORAGE_KEYS.CURRENT_USER, JSON.stringify(mockUser));
+      resolve({ success: true, message: "Registration successful!", user: mockUser });
+    }, 500);
+  });
+};
+
+export const logoutUser = (): void => {
+  localStorage.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+  localStorage.removeItem(STORAGE_KEYS.CURRENT_USER);
 };
