@@ -9,20 +9,20 @@ import { Frown, Smile, Sparkles, Flag, Lightbulb } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 const FollowUp = () => {
-  const [flaggedReflections, setFlaggedReflections] = useState<Reflection[]>([]);
+  const [followUpReflections, setFollowUpReflections] = useState<Reflection[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
 
   useEffect(() => {
-    loadFlaggedReflections();
+    loadFollowUpReflections();
     setUserSettings(getUserSettings());
   }, []);
 
-  const loadFlaggedReflections = () => {
+  const loadFollowUpReflections = () => {
     const allStoredReflections = getReflections();
     const filtered = allStoredReflections
-      .filter(r => r.isFlaggedForFollowUp)
+      .filter(r => r.isFlaggedForFollowUp || Object.values(r.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0)
       .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    setFlaggedReflections(filtered);
+    setFollowUpReflections(filtered);
   };
 
   const updateAndSaveReflections = (updatedReflections: Reflection[]) => {
@@ -33,11 +33,11 @@ const FollowUp = () => {
       return updated ? updated : r;
     });
     saveReflections(newAllReflections);
-    loadFlaggedReflections(); // Reload flagged reflections after saving
+    loadFollowUpReflections(); // Reload follow-up reflections after saving
   };
 
   const handleToggleFlag = (reflectionId: string) => {
-    const updatedReflections = flaggedReflections.map(r => {
+    const updatedReflections = followUpReflections.map(r => {
       if (r.id === reflectionId) {
         return {
           ...r,
@@ -63,13 +63,13 @@ const FollowUp = () => {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Follow-up Reminders</h1>
-      <p className="text-center text-muted-foreground mb-8">Reflections you've flagged to revisit or ask more about.</p>
+      <p className="text-center text-muted-foreground mb-8">Reflections you've flagged or received curiosity taps on.</p>
 
-      {flaggedReflections.length === 0 ? (
-        <p className="text-center text-muted-foreground">No reflections currently flagged for follow-up.</p>
+      {followUpReflections.length === 0 ? (
+        <p className="text-center text-muted-foreground">No reflections currently flagged for follow-up or with curiosity taps.</p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {flaggedReflections.map((reflection) => (
+          {followUpReflections.map((reflection) => (
             <Card key={reflection.id} className="flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center justify-between">
