@@ -1,19 +1,35 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections } from '@/lib/storage';
-import { Reflection } from '@/types';
+import { getReflections, getUserSettings } from '@/lib/storage';
+import { Reflection, UserSettings } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import { Frown, Smile, Sparkles } from 'lucide-react';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { Label } from '@/components/ui/label';
 
 const History = () => {
-  const [reflections, setReflections] = useState<Reflection[]>([]);
+  const [allReflections, setAllReflections] = useState<Reflection[]>([]);
+  const [filteredReflections, setFilteredReflections] = useState<Reflection[]>([]);
+  const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
+  const [filterBy, setFilterBy] = useState<string>('all'); // 'all', 'self', friendId, herdId
 
   useEffect(() => {
     const storedReflections = getReflections();
     // Sort by timestamp descending
-    setReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    setAllReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    setUserSettings(getUserSettings());
   }, []);
+
+  useEffect(() => {
+    let currentFiltered = allReflections;
+    if (filterBy === 'self') {
+      currentFiltered = allReflections.filter(r => r.sharedWith.includes('self'));
+    } else if (filterBy !== 'all') {
+      currentFiltered = allReflections.filter(r => r.sharedWith.includes(filterBy));
+    }
+    setFilteredReflections(currentFiltered);
+  }, [filterBy, allReflections]);
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -27,17 +43,44 @@ const History = () => {
   return (
     <div className="container mx-auto py-8">
       <h1 className="text-3xl font-bold mb-8 text-center">Your Reflection History</h1>
-      {reflections.length === 0 ? (
-        <p className="text-center text-muted-foreground">No reflections yet. Share your first High, Low, and Buffalo!</p>
+
+      <div className="mb-6 flex items-center gap-4 justify-center">
+        <Label htmlFor="filterBy" className="text-lg">Filter by:</Label>
+        <Select value={filterBy} onValueChange={setFilterBy}>
+          <SelectTrigger id="filterBy" className="w-[180px]">
+            <SelectValue placeholder="All Reflections" />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="all">All Reflections</SelectItem>
+            <SelectItem value="self">Just Me (Private)</SelectItem>
+            {userSettings.friends.map(friend => (
+              <SelectItem key={friend} value={friend}>{friend}</SelectItem>
+            ))}
+            {userSettings.herds.filter(h => h.id !== 'self').map(herd => (
+              <SelectItem key={herd.id} value={herd.id}>{herd.name} (Herd)</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+
+      {filteredReflections.length === 0 ? (
+        <p className="text-center text-muted-foreground">No reflections found for this filter.</p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
-          {reflections.map((reflection) => (
+          {filteredReflections.map((reflection) => (
             <Card key={reflection.id} className="flex flex-col">
               <CardHeader className="pb-2">
                 <CardTitle className="text-lg flex items-center justify-between">
                   <span>{format(new Date(reflection.timestamp), 'PPP')}</span>
                   <Badge variant="secondary" className="text-xs">
-                    Shared with: {reflection.sharedWith.length > 0 ? reflection.sharedWith.join(', ') : 'Self'}
+                    Shared with: {reflection.sharedWith.length > 0 ? reflection.sharedWith.map(id => {
+                      if (id === 'self') return 'Self';
+                      const friend = userSettings.friends.find(f => f === id);
+                      if (friend) return friend;
+                      const herd = userSettings.herds.find(h => h.id === id);
+                      if (herd) return herd.name;
+                      return id; // Fallback if ID not found
+                    }).join(', ') : 'Self'}
                   </Badge>
                 </CardTitle>
                 <p className="text-sm text-muted-foreground">
@@ -63,7 +106,7 @@ const History = () => {
                   </h3>
                   <p className="text-sm text-muted-foreground">{reflection.buffalo}</p>
                 </div>
-                {Object.keys(reflection.curiosityReactions).length > 0 && (
+                {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0 && (
                   <div className="mt-2 text-sm text-muted-foreground">
                     Curiosity reactions: {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0)}
                   </div>
