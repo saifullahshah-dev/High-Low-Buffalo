@@ -1,55 +1,114 @@
-// Update this page (the content is just a fallback if you fail to update the page)
-
-import { Settings } from "lucide-react";
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from 'react';
+import ReflectionForm from '@/components/ReflectionForm';
+import { getReflections, saveReflections } from '@/lib/storage';
+import { Reflection } from '@/types';
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Button } from '@/components/ui/button';
+import { formatDistanceToNow } from 'date-fns';
+import { Frown, Smile, Sparkles, Lightbulb } from 'lucide-react';
+import { showSuccess } from '@/utils/toast';
 
 const Index = () => {
-  // Array of creative loading messages
-  const loadingMessages = [
-    "Gears are spinning and code elves are still typing away.",
-    "Your app's in the workshop—hammering and welding features.",
-    "Seeds planted, watering daily—your app's growing.",
-    "The orchestra's rehearsing—your app's score is being written.",
-    "We're sprinting through code and hurdling over bugs as we build.",
-    "Your app's training hard in the gym, getting stronger each day.",
-  ];
-
-  const [currentMessageIndex, setCurrentMessageIndex] = useState(0);
-  const [isVisible, setIsVisible] = useState(true);
+  const [reflections, setReflections] = useState<Reflection[]>([]);
 
   useEffect(() => {
-    const interval = setInterval(() => {
-      // Start fade out
-      setIsVisible(false);
+    const storedReflections = getReflections();
+    // Show only the most recent 3 reflections on the home page
+    setReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 3));
+  }, []);
 
-      // After fade out completes, change message and fade in
-      setTimeout(() => {
-        setCurrentMessageIndex((prev) => (prev + 1) % loadingMessages.length);
-        setIsVisible(true);
-      }, 500); // 500ms for fade out
-    }, 3000); // Change message every 3 seconds
+  const handleCuriosityTap = (reflectionId: string) => {
+    const updatedReflections = reflections.map(r => {
+      if (r.id === reflectionId) {
+        const currentCount = r.curiosityReactions[reflectionId] || 0;
+        return {
+          ...r,
+          curiosityReactions: {
+            ...r.curiosityReactions,
+            [reflectionId]: currentCount + 1,
+          },
+        };
+      }
+      return r;
+    });
+    setReflections(updatedReflections);
+    saveReflections(getReflections().map(r => updatedReflections.find(ur => ur.id === r.id) || r));
+    showSuccess("Curiosity noted! You can ask more about this later.");
+  };
 
-    return () => clearInterval(interval);
-  }, [loadingMessages.length]);
+  const getIcon = (type: string) => {
+    switch (type) {
+      case 'high': return <Smile className="h-4 w-4 text-green-500" />;
+      case 'low': return <Frown className="h-4 w-4 text-red-500" />;
+      case 'buffalo': return <Sparkles className="h-4 w-4 text-blue-500" />;
+      default: return null;
+    }
+  };
 
   return (
-    <div className="min-h-screen flex flex-col items-center justify-center bg-gray-900 text-white">
-      {/* Spinning Gear Icon */}
-      <div className="mb-8">
-        <Settings
-          className="w-16 h-16 text-gray-400 animate-spin"
-          style={{ animationDuration: "3s" }}
-        />
-      </div>
+    <div className="container mx-auto py-8 space-y-12">
+      <ReflectionForm />
 
-      {/* Main Text with Fade Animation */}
-      <h1
-        className={`text-xl font-medium text-gray-300 text-center max-w-md transition-opacity duration-500 ${
-          isVisible ? "opacity-100" : "opacity-0"
-        }`}
-      >
-        {loadingMessages[currentMessageIndex]}
-      </h1>
+      <section className="space-y-6">
+        <h2 className="text-3xl font-bold text-center">Recent Reflections</h2>
+        {reflections.length === 0 ? (
+          <p className="text-center text-muted-foreground">No recent reflections. Share your first High, Low, and Buffalo!</p>
+        ) : (
+          <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+            {reflections.map((reflection) => (
+              <Card key={reflection.id} className="flex flex-col">
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-lg flex items-center justify-between">
+                    <span>{formatDistanceToNow(new Date(reflection.timestamp), { addSuffix: true })}</span>
+                    <span className="text-sm text-muted-foreground">
+                      {reflection.sharedWith.includes('self') ? 'Private' : reflection.sharedWith.join(', ')}
+                    </span>
+                  </CardTitle>
+                  <CardDescription className="text-sm">
+                    {formatDistanceToNow(new Date(reflection.timestamp), { addSuffix: true })}
+                  </CardDescription>
+                </CardHeader>
+                <CardContent className="flex-1 flex flex-col gap-4">
+                  <div>
+                    <h3 className="font-semibold flex items-center gap-2 mb-1">
+                      {getIcon('high')} High:
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{reflection.high}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold flex items-center gap-2 mb-1">
+                      {getIcon('low')} Low:
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{reflection.low}</p>
+                  </div>
+                  <div>
+                    <h3 className="font-semibold flex items-center gap-2 mb-1">
+                      {getIcon('buffalo')} Buffalo:
+                    </h3>
+                    <p className="text-sm text-muted-foreground">{reflection.buffalo}</p>
+                  </div>
+                  <div className="mt-auto flex justify-between items-center pt-4 border-t">
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleCuriosityTap(reflection.id)}
+                      className="flex items-center gap-1"
+                    >
+                      <Lightbulb className="h-4 w-4" />
+                      Curiosity Tap
+                    </Button>
+                    {reflection.curiosityReactions[reflection.id] > 0 && (
+                      <span className="text-sm text-muted-foreground">
+                        {reflection.curiosityReactions[reflection.id]} taps
+                      </span>
+                    )}
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        )}
+      </section>
     </div>
   );
 };
