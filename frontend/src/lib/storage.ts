@@ -23,6 +23,29 @@ export const saveReflections = (reflections: Reflection[]): void => {
   }
 };
 
+export const updateReflection = (updatedReflection: Reflection): void => {
+  try {
+    const reflections = getReflections();
+    const index = reflections.findIndex(r => r.id === updatedReflection.id);
+    if (index !== -1) {
+      reflections[index] = updatedReflection;
+      saveReflections(reflections);
+    }
+  } catch (error) {
+    console.error("Failed to update reflection in localStorage", error);
+  }
+};
+
+export const deleteReflection = (reflectionId: string): void => {
+  try {
+    let reflections = getReflections();
+    reflections = reflections.filter(r => r.id !== reflectionId);
+    saveReflections(reflections);
+  } catch (error) {
+    console.error("Failed to delete reflection from localStorage", error);
+  }
+};
+
 export const getUserSettings = (): UserSettings => {
   try {
     const data = localStorage.getItem(STORAGE_KEYS.USER_SETTINGS);

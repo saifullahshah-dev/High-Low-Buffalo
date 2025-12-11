@@ -1,14 +1,16 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections, saveReflections, getUserSettings } from '@/lib/storage';
+import { getReflections, updateReflection, deleteReflection, getUserSettings } from '@/lib/storage';
 import { Reflection, UserSettings } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
-import { Frown, Smile, Sparkles, Flag } from 'lucide-react';
+import { Button } from '@/components/ui/button';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
-import { Button } from '@/components/ui/button';
-import { showSuccess } from '@/utils/toast';
+import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
+import { format } from 'date-fns';
+import { Frown, Smile, Sparkles, Flag, Lightbulb, Edit, Trash2 } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
+import EditReflectionDialog from '@/components/EditReflectionDialog'; // Import the new component
 
 const History = () => {
   const [allReflections, setAllReflections] = useState<Reflection[]>([]);
@@ -16,10 +18,11 @@ const History = () => {
   const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
   const [filterBy, setFilterBy] = useState<string>('all'); // 'all', 'self', friendId, herdId
 
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [reflectionToEdit, setReflectionToEdit] = useState<Reflection | null>(null);
+
   useEffect(() => {
-    const storedReflections = getReflections();
-    // Sort by timestamp descending
-    setAllReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    loadReflections();
     setUserSettings(getUserSettings());
   }, []);
 
@@ -33,9 +36,9 @@ const History = () => {
     setFilteredReflections(currentFiltered);
   }, [filterBy, allReflections]);
 
-  const updateAndSaveReflections = (updatedReflections: Reflection[]) => {
-    setAllReflections(updatedReflections); // Update allReflections to reflect changes
-    saveReflections(updatedReflections); // Save all reflections to localStorage
+  const loadReflections = () => {
+    const storedReflections = getReflections();
+    setAllReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
   };
 
   const handleFlagForFollowUp = (reflectionId: string) => {
@@ -48,9 +51,40 @@ const History = () => {
       }
       return r;
     });
-    updateAndSaveReflections(updatedReflections);
+    updateReflectionStateAndStorage(updatedReflections);
     const isCurrentlyFlagged = updatedReflections.find(r => r.id === reflectionId)?.isFlaggedForFollowUp;
     showSuccess(isCurrentlyFlagged ? "Reflection flagged for follow-up!" : "Flag removed.");
+  };
+
+  const handleEditClick = (reflection: Reflection) => {
+    setReflectionToEdit(reflection);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleSaveEdit = (updatedReflection: Reflection) => {
+    updateReflection(updatedReflection); // Update in localStorage
+    loadReflections(); // Reload all reflections to update state
+    showSuccess("Reflection updated successfully!");
+  };
+
+  const handleDeleteReflection = (reflectionId: string) => {
+    deleteReflection(reflectionId); // Delete from localStorage
+    loadReflections(); // Reload all reflections to update state
+    showSuccess("Reflection deleted successfully!");
+  };
+
+  const updateReflectionStateAndStorage = (updatedReflections: Reflection[]) => {
+    setAllReflections(updatedReflections);
+    // This function is used for flagging, which only changes one reflection.
+    // We need to ensure the specific reflection is updated in storage, not the whole array.
+    // A more robust solution would be to pass the single updated reflection to updateReflection.
+    // For now, we'll iterate and update each changed reflection.
+    updatedReflections.forEach(r => {
+      const original = allReflections.find(orig => orig.id === r.id);
+      if (original && (original.isFlaggedForFollowUp !== r.isFlaggedForFollowUp)) {
+        updateReflection(r);
+      }
+    });
   };
 
   const getIcon = (type: string) => {
@@ -146,11 +180,46 @@ const History = () => {
                       Flag
                     </Button>
                   </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" onClick={() => handleEditClick(reflection)}>
+                      <Edit className="h-4 w-4 mr-1" /> Edit
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="destructive" size="sm">
+                          <Trash2 className="h-4 w-4 mr-1" /> Delete
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Are you absolutely sure?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. This will permanently delete your reflection.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <AlertDialogAction onClick={() => handleDeleteReflection(reflection.id)}>
+                            Continue
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+      )}
+
+      {reflectionToEdit && (
+        <EditReflectionDialog
+          reflection={reflectionToEdit}
+          isOpen={isEditDialogOpen}
+          onClose={() => setIsEditDialogOpen(false)}
+          onSave={handleSaveEdit}
+        />
       )}
     </div>
   );
