@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { Home, History, Settings, Mountain } from 'lucide-react';
+import { Home, History, Settings, Mountain, Flag } from 'lucide-react'; // Import Flag icon
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
@@ -17,6 +17,10 @@ const Header = () => {
       <Link to="/history" className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm">
         <History className="h-5 w-5" />
         History
+      </Link>
+      <Link to="/follow-up" className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm">
+        <Flag className="h-5 w-5" />
+        Follow-up
       </Link>
       <Link to="/settings" className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm">
         <Settings className="h-5 w-5" />
