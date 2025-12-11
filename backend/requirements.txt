@@ -7,3 +7,5 @@ passlib[bcrypt]
 python-multipart
 email-validator
 python-dotenv
+gunicorn
+bcrypt==4.0.1
