@@ -1,12 +1,32 @@
 import React from 'react';
-import { Link } from 'react-router-dom';
-import { Home, History, Settings, Mountain, Flag } from 'lucide-react'; // Import Flag icon
+import { Link, useNavigate } from 'react-router-dom';
+import { Home, History, Settings, Mountain, Flag, LogOut } from 'lucide-react'; // Import Flag icon
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useAuth } from '../context/AuthContext';
 
 const Header = () => {
   const isMobile = useIsMobile();
+  const { isAuthenticated, logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleLogout = () => {
+    logout();
+    navigate('/login');
+  };
+
+  if (!isAuthenticated) {
+    return (
+      <header className="sticky top-0 z-30 flex h-14 items-center gap-4 border-b bg-background px-4 sm:static sm:h-auto sm:border-0 sm:bg-transparent sm:px-6">
+        <Link to="/" className="flex items-center gap-2 text-lg font-semibold md:text-base">
+          <Mountain className="h-6 w-6" />
+          <span className="sr-only">High-Low-Buffalo</span>
+          <span className="hidden md:inline">High-Low-Buffalo</span>
+        </Link>
+      </header>
+    )
+  }
 
   const navLinks = (
     <>
@@ -26,6 +46,10 @@ const Header = () => {
         <Settings className="h-5 w-5" />
         Settings
       </Link>
+      <Button variant="ghost" className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm justify-start px-0 md:px-4" onClick={handleLogout}>
+        <LogOut className="h-5 w-5" />
+        Logout
+      </Button>
     </>
   );
 
