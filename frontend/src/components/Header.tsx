@@ -1,36 +1,12 @@
-import React, { useEffect, useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Home, History, Settings, Mountain, Flag, LogIn, LogOut } from 'lucide-react';
+import React from 'react';
+import { Link } from 'react-router-dom';
+import { Home, History, Settings, Mountain, Flag } from 'lucide-react'; // Import Flag icon
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { getAuthToken, logoutUser } from '@/lib/storage'; // Import auth functions
-import { showSuccess } from '@/utils/toast';
 
 const Header = () => {
   const isMobile = useIsMobile();
-  const navigate = useNavigate();
-  const [isAuthenticated, setIsAuthenticated] = useState(false);
-
-  useEffect(() => {
-    setIsAuthenticated(!!getAuthToken());
-  }, []);
-
-  // Listen for changes in localStorage to update auth state
-  useEffect(() => {
-    const handleStorageChange = () => {
-      setIsAuthenticated(!!getAuthToken());
-    };
-    window.addEventListener('storage', handleStorageChange);
-    return () => window.removeEventListener('storage', handleStorageChange);
-  }, []);
-
-  const handleLogout = () => {
-    logoutUser();
-    setIsAuthenticated(false);
-    showSuccess("Logged out successfully!");
-    navigate('/auth'); // Redirect to auth page after logout
-  };
 
   const navLinks = (
     <>
@@ -71,34 +47,12 @@ const Header = () => {
           <SheetContent side="left" className="sm:max-w-xs">
             <nav className="grid gap-6 text-lg font-medium pt-8">
               {navLinks}
-              {isAuthenticated ? (
-                <Button variant="ghost" onClick={handleLogout} className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm">
-                  <LogOut className="h-5 w-5" />
-                  Logout
-                </Button>
-              ) : (
-                <Link to="/auth" className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm">
-                  <LogIn className="h-5 w-5" />
-                  Login
-                </Link>
-              )}
             </nav>
           </SheetContent>
         </Sheet>
       ) : (
         <nav className="hidden flex-col gap-6 text-lg font-medium md:flex md:flex-row md:items-center md:gap-5 md:text-sm lg:gap-6 ml-auto">
           {navLinks}
-          {isAuthenticated ? (
-            <Button variant="ghost" onClick={handleLogout} className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm">
-              <LogOut className="h-5 w-5" />
-              Logout
-            </Button>
-          ) : (
-            <Link to="/auth" className="flex items-center gap-2 text-lg font-medium transition-colors hover:text-primary md:text-sm">
-              <LogIn className="h-5 w-5" />
-              Login
-            </Link>
-          )}
         </nav>
       )}
     </header>

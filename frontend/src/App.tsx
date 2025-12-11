@@ -7,8 +7,7 @@ import Layout from "./components/Layout";
 import Index from "./pages/Index";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
-import FollowUp from "./pages/FollowUp";
-import Auth from "./pages/Auth"; // Import the new Auth page
+import FollowUp from "./pages/FollowUp"; // Import the new FollowUp page
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -24,8 +23,7 @@ const App = () => (
             <Route path="/" element={<Index />} />
             <Route path="/history" element={<History />} />
             <Route path="/settings" element={<Settings />} />
-            <Route path="/follow-up" element={<FollowUp />} />
-            <Route path="/auth" element={<Auth />} /> {/* Add Auth route */}
+            <Route path="/follow-up" element={<FollowUp />} /> {/* Add FollowUp route */}
             {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}
             <Route path="*" element={<NotFound />} />
           </Routes>
