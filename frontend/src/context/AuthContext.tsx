@@ -25,15 +25,19 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   useEffect(() => {
     const fetchUser = async () => {
       if (token) {
+        setIsLoading(true);
         try {
           const response = await api.get('/users/me');
           setUser(response.data);
         } catch (error) {
           console.error("Failed to fetch user", error);
           logout();
+        } finally {
+          setIsLoading(false);
         }
+      } else {
+        setIsLoading(false);
       }
-      setIsLoading(false);
     };
 
     fetchUser();
