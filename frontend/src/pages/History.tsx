@@ -1,12 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections, getUserSettings } from '@/lib/storage';
+import { getReflections, saveReflections, getUserSettings } from '@/lib/storage';
 import { Reflection, UserSettings } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
-import { Frown, Smile, Sparkles } from 'lucide-react';
+import { Frown, Smile, Sparkles, Flag } from 'lucide-react';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Label } from '@/components/ui/label';
+import { Button } from '@/components/ui/button';
+import { showSuccess } from '@/utils/toast';
 
 const History = () => {
   const [allReflections, setAllReflections] = useState<Reflection[]>([]);
@@ -30,6 +32,26 @@ const History = () => {
     }
     setFilteredReflections(currentFiltered);
   }, [filterBy, allReflections]);
+
+  const updateAndSaveReflections = (updatedReflections: Reflection[]) => {
+    setAllReflections(updatedReflections); // Update allReflections to reflect changes
+    saveReflections(updatedReflections); // Save all reflections to localStorage
+  };
+
+  const handleFlagForFollowUp = (reflectionId: string) => {
+    const updatedReflections = allReflections.map(r => {
+      if (r.id === reflectionId) {
+        return {
+          ...r,
+          isFlaggedForFollowUp: !r.isFlaggedForFollowUp,
+        };
+      }
+      return r;
+    });
+    updateAndSaveReflections(updatedReflections);
+    const isCurrentlyFlagged = updatedReflections.find(r => r.id === reflectionId)?.isFlaggedForFollowUp;
+    showSuccess(isCurrentlyFlagged ? "Reflection flagged for follow-up!" : "Flag removed.");
+  };
 
   const getIcon = (type: string) => {
     switch (type) {
@@ -106,11 +128,25 @@ const History = () => {
                   </h3>
                   <p className="text-sm text-muted-foreground">{reflection.buffalo}</p>
                 </div>
-                {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0 && (
-                  <div className="mt-2 text-sm text-muted-foreground">
-                    Curiosity reactions: {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0)}
+                <div className="mt-auto flex justify-between items-center pt-4 border-t">
+                  <div className="flex gap-2">
+                    {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0 && (
+                      <span className="text-sm text-muted-foreground flex items-center">
+                        <Lightbulb className="h-4 w-4 mr-1" />
+                        {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0)} taps
+                      </span>
+                    )}
+                    <Button
+                      variant={reflection.isFlaggedForFollowUp ? "default" : "outline"}
+                      size="sm"
+                      onClick={() => handleFlagForFollowUp(reflection.id)}
+                      className="flex items-center gap-1"
+                    >
+                      <Flag className="h-4 w-4" />
+                      Flag
+                    </Button>
                   </div>
-                )}
+                </div>
               </CardContent>
             </Card>
           ))}

@@ -8,6 +8,7 @@ export interface Reflection {
   timestamp: string; // ISO date string
   sharedWith: string[]; // IDs of herds/friends
   curiosityReactions: { [reflectionId: string]: number }; // Count of curiosity reactions
+  isFlaggedForFollowUp?: boolean; // New: Flag to remind user to ask for more detail
 }
 
 export interface Herd {

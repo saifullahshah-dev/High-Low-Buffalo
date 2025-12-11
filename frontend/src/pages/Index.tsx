@@ -5,7 +5,7 @@ import { Reflection } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import { Frown, Smile, Sparkles, Lightbulb } from 'lucide-react';
+import { Frown, Smile, Sparkles, Lightbulb, Flag } from 'lucide-react';
 import { showSuccess } from '@/utils/toast';
 
 const Index = () => {
@@ -16,6 +16,14 @@ const Index = () => {
     // Show only the most recent 3 reflections on the home page
     setReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 3));
   }, []);
+
+  const updateAndSaveReflections = (updatedReflections: Reflection[]) => {
+    setReflections(updatedReflections);
+    // Ensure all reflections in localStorage are updated, not just the displayed ones
+    const allStoredReflections = getReflections();
+    const newAllStoredReflections = allStoredReflections.map(r => updatedReflections.find(ur => ur.id === r.id) || r);
+    saveReflections(newAllStoredReflections);
+  };
 
   const handleCuriosityTap = (reflectionId: string) => {
     const updatedReflections = reflections.map(r => {
@@ -31,9 +39,23 @@ const Index = () => {
       }
       return r;
     });
-    setReflections(updatedReflections);
-    saveReflections(getReflections().map(r => updatedReflections.find(ur => ur.id === r.id) || r));
+    updateAndSaveReflections(updatedReflections);
     showSuccess("Curiosity noted! You can ask more about this later.");
+  };
+
+  const handleFlagForFollowUp = (reflectionId: string) => {
+    const updatedReflections = reflections.map(r => {
+      if (r.id === reflectionId) {
+        return {
+          ...r,
+          isFlaggedForFollowUp: !r.isFlaggedForFollowUp,
+        };
+      }
+      return r;
+    });
+    updateAndSaveReflections(updatedReflections);
+    const isCurrentlyFlagged = updatedReflections.find(r => r.id === reflectionId)?.isFlaggedForFollowUp;
+    showSuccess(isCurrentlyFlagged ? "Reflection flagged for follow-up!" : "Flag removed.");
   };
 
   const getIcon = (type: string) => {
@@ -88,18 +110,29 @@ const Index = () => {
                     <p className="text-sm text-muted-foreground">{reflection.buffalo}</p>
                   </div>
                   <div className="mt-auto flex justify-between items-center pt-4 border-t">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => handleCuriosityTap(reflection.id)}
-                      className="flex items-center gap-1"
-                    >
-                      <Lightbulb className="h-4 w-4" />
-                      Curiosity Tap
-                    </Button>
-                    {reflection.curiosityReactions[reflection.id] > 0 && (
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => handleCuriosityTap(reflection.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Lightbulb className="h-4 w-4" />
+                        Curiosity Tap
+                      </Button>
+                      <Button
+                        variant={reflection.isFlaggedForFollowUp ? "default" : "outline"}
+                        size="sm"
+                        onClick={() => handleFlagForFollowUp(reflection.id)}
+                        className="flex items-center gap-1"
+                      >
+                        <Flag className="h-4 w-4" />
+                        Flag
+                      </Button>
+                    </div>
+                    {(reflection.curiosityReactions[reflection.id] || 0) > 0 && (
                       <span className="text-sm text-muted-foreground">
-                        {reflection.curiosityReactions[reflection.id]} taps
+                        {(reflection.curiosityReactions[reflection.id] || 0)} taps
                       </span>
                     )}
                   </div>
