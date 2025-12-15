@@ -18,6 +18,14 @@ async def create_user(user: schemas.UserCreate):
     del user_dict["password"]
     user_dict["is_active"] = True
     
+    # Initialize default settings if not present
+    if not user_dict.get("settings"):
+        user_dict["settings"] = {
+            "notificationCadence": "daily",
+            "herds": [{"id": "self", "name": "Just Me", "members": []}],
+            "friends": []
+        }
+    
     new_user = await db.users.insert_one(user_dict)
     created_user = await db.users.find_one({"_id": new_user.inserted_id})
     return created_user

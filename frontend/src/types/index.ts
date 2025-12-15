@@ -9,6 +9,23 @@ export interface Reflection {
   sharedWith: string[]; // IDs of herds/friends
   curiosityReactions: { [reflectionId: string]: number }; // Count of curiosity reactions
   isFlaggedForFollowUp?: boolean; // New: Flag to remind user to ask for more detail
+  user_id?: string;
+}
+
+export interface ReflectionCreate {
+  high: string;
+  low: string;
+  buffalo: string;
+  sharedWith: string[];
+}
+
+export interface ReflectionUpdate {
+  high?: string;
+  low?: string;
+  buffalo?: string;
+  sharedWith?: string[];
+  curiosityReactions?: { [reflectionId: string]: number };
+  isFlaggedForFollowUp?: boolean;
 }
 
 export interface Herd {
@@ -21,4 +38,11 @@ export interface UserSettings {
   notificationCadence: 'daily' | 'weekly' | 'paused';
   herds: Herd[];
   friends: string[]; // Simple list of friend names/identifiers
+}
+
+export interface User {
+  id: string;
+  email: string;
+  full_name?: string;
+  settings?: UserSettings;
 }

@@ -6,14 +6,14 @@ import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
 import { Reflection, UserSettings } from '@/types';
-import { getUserSettings } from '@/lib/storage';
-import { Frown, Smile, Sparkles } from 'lucide-react';
+import { getUser } from '@/lib/api';
+import { Frown, Smile, Sparkles, Loader2 } from 'lucide-react';
 
 interface EditReflectionDialogProps {
   reflection: Reflection;
   isOpen: boolean;
   onClose: () => void;
-  onSave: (updatedReflection: Reflection) => void;
+  onSave: (updatedReflection: Reflection) => Promise<void>;
 }
 
 const EditReflectionDialog: React.FC<EditReflectionDialogProps> = ({ reflection, isOpen, onClose, onSave }) => {
@@ -21,7 +21,12 @@ const EditReflectionDialog: React.FC<EditReflectionDialogProps> = ({ reflection,
   const [low, setLow] = useState(reflection.low);
   const [buffalo, setBuffalo] = useState(reflection.buffalo);
   const [sharedWith, setSharedWith] = useState<string>(reflection.sharedWith[0] || 'self');
-  const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    notificationCadence: 'daily',
+    herds: [],
+    friends: []
+  });
+  const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
     if (reflection) {
@@ -30,21 +35,30 @@ const EditReflectionDialog: React.FC<EditReflectionDialogProps> = ({ reflection,
       setBuffalo(reflection.buffalo);
       setSharedWith(reflection.sharedWith[0] || 'self');
     }
-    setUserSettings(getUserSettings());
+    getUser().then(user => {
+      if (user.settings) setUserSettings(user.settings);
+    }).catch(console.error);
   }, [reflection]);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    const updatedReflection: Reflection = {
-      ...reflection,
-      high: high.trim(),
-      low: low.trim(),
-      buffalo: buffalo.trim(),
-      sharedWith: [sharedWith],
-      timestamp: new Date().toISOString(), // Update timestamp on edit
-    };
-    onSave(updatedReflection);
-    onClose();
+    setIsSaving(true);
+    try {
+      const updatedReflection: Reflection = {
+        ...reflection,
+        high: high.trim(),
+        low: low.trim(),
+        buffalo: buffalo.trim(),
+        sharedWith: [sharedWith],
+        // Timestamp update logic is handled by backend or ignored based on schema,
+        // but we keep structure consistent with original.
+        timestamp: new Date().toISOString(),
+      };
+      await onSave(updatedReflection);
+      // Don't call onClose() here; parent handles closing on success.
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const getIcon = (type: string) => {
@@ -118,7 +132,19 @@ const EditReflectionDialog: React.FC<EditReflectionDialogProps> = ({ reflection,
             </Select>
           </div>
           <DialogFooter>
-            <Button type="submit">Save changes</Button>
+            <Button type="button" variant="outline" onClick={onClose} disabled={isSaving}>
+              Cancel
+            </Button>
+            <Button type="submit" disabled={isSaving}>
+              {isSaving ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                'Save changes'
+              )}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { getUserSettings, saveUserSettings } from '@/lib/storage';
+import { getUser, updateUserSettings } from '@/lib/api';
 import { UserSettings, Herd } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
@@ -10,63 +10,94 @@ import { PlusCircle, Trash2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Settings = () => {
-  const [settings, setSettings] = useState<UserSettings>(getUserSettings());
+  const [settings, setSettings] = useState<UserSettings>({
+    notificationCadence: 'daily',
+    herds: [{ id: 'self', name: 'Just Me', members: [] }],
+    friends: [],
+  });
   const [newFriendName, setNewFriendName] = useState('');
   const [newHerdName, setNewHerdName] = useState('');
 
   useEffect(() => {
-    saveUserSettings(settings);
-  }, [settings]);
+    const fetchSettings = async () => {
+      try {
+        const user = await getUser();
+        if (user.settings) {
+          setSettings(user.settings);
+        }
+      } catch (error) {
+        console.error('Failed to load settings:', error);
+      }
+    };
+    fetchSettings();
+  }, []);
+
+  const save = async (newSettings: UserSettings) => {
+    setSettings(newSettings);
+    try {
+      await updateUserSettings(newSettings);
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      showError('Failed to save settings.');
+    }
+  };
 
   const handleCadenceChange = (value: 'daily' | 'weekly' | 'paused') => {
-    setSettings(prev => ({ ...prev, notificationCadence: value }));
+    const newSettings = { ...settings, notificationCadence: value };
+    save(newSettings);
     showSuccess(`Notification cadence set to ${value}.`);
   };
 
   const handleAddFriend = () => {
-    if (newFriendName.trim() && !settings.friends.includes(newFriendName.trim())) {
-      setSettings(prev => ({
-        ...prev,
-        friends: [...prev.friends, newFriendName.trim()],
-      }));
+    const name = newFriendName.trim();
+    if (name && !settings.friends.includes(name)) {
+      const newSettings = {
+        ...settings,
+        friends: [...settings.friends, name],
+      };
+      save(newSettings);
       setNewFriendName('');
-      showSuccess(`Friend "${newFriendName.trim()}" added.`);
-    } else if (settings.friends.includes(newFriendName.trim())) {
-      showError(`Friend "${newFriendName.trim()}" already exists.`);
+      showSuccess(`Friend "${name}" added.`);
+    } else if (settings.friends.includes(name)) {
+      showError(`Friend "${name}" already exists.`);
     }
   };
 
   const handleRemoveFriend = (friendToRemove: string) => {
-    setSettings(prev => ({
-      ...prev,
-      friends: prev.friends.filter(friend => friend !== friendToRemove),
-    }));
+    const newSettings = {
+      ...settings,
+      friends: settings.friends.filter(friend => friend !== friendToRemove),
+    };
+    save(newSettings);
     showSuccess(`Friend "${friendToRemove}" removed.`);
   };
 
   const handleAddHerd = () => {
-    if (newHerdName.trim() && !settings.herds.some(herd => herd.name === newHerdName.trim())) {
+    const name = newHerdName.trim();
+    if (name && !settings.herds.some(herd => herd.name === name)) {
       const newHerd: Herd = {
         id: `herd-${Date.now()}`,
-        name: newHerdName.trim(),
+        name: name,
         members: [], // Members can be added later
       };
-      setSettings(prev => ({
-        ...prev,
-        herds: [...prev.herds, newHerd],
-      }));
+      const newSettings = {
+        ...settings,
+        herds: [...settings.herds, newHerd],
+      };
+      save(newSettings);
       setNewHerdName('');
-      showSuccess(`Herd "${newHerdName.trim()}" created.`);
-    } else if (settings.herds.some(herd => herd.name === newHerdName.trim())) {
-      showError(`Herd "${newHerdName.trim()}" already exists.`);
+      showSuccess(`Herd "${name}" created.`);
+    } else if (settings.herds.some(herd => herd.name === name)) {
+      showError(`Herd "${name}" already exists.`);
     }
   };
 
   const handleRemoveHerd = (herdId: string) => {
-    setSettings(prev => ({
-      ...prev,
-      herds: prev.herds.filter(herd => herd.id !== herdId),
-    }));
+    const newSettings = {
+      ...settings,
+      herds: settings.herds.filter(herd => herd.id !== herdId),
+    };
+    save(newSettings);
     showSuccess(`Herd removed.`);
   };
 

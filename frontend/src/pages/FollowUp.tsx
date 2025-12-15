@@ -1,54 +1,60 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections, saveReflections, getUserSettings } from '@/lib/storage';
+import { getReflections, updateReflection, getUser } from '@/lib/api';
 import { Reflection, UserSettings } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { format } from 'date-fns';
-import { Frown, Smile, Sparkles, Flag, Lightbulb } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { Frown, Smile, Sparkles, Flag, Lightbulb, Loader2 } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
 
 const FollowUp = () => {
   const [followUpReflections, setFollowUpReflections] = useState<Reflection[]>([]);
-  const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    notificationCadence: 'daily',
+    herds: [],
+    friends: []
+  });
+  const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
     loadFollowUpReflections();
-    setUserSettings(getUserSettings());
+    getUser().then(user => {
+      if (user.settings) setUserSettings(user.settings);
+    }).catch(console.error);
   }, []);
 
-  const loadFollowUpReflections = () => {
-    const allStoredReflections = getReflections();
-    const filtered = allStoredReflections
-      .filter(r => r.isFlaggedForFollowUp || Object.values(r.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0)
-      .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
-    setFollowUpReflections(filtered);
+  const loadFollowUpReflections = async () => {
+    setIsLoading(true);
+    try {
+      const allStoredReflections = await getReflections();
+      const filtered = allStoredReflections
+        .filter(r => r.isFlaggedForFollowUp || Object.values(r.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0)
+        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
+      setFollowUpReflections(filtered);
+    } catch (error) {
+      console.error("Failed to load follow-up reflections:", error);
+      showError("Failed to load reflections.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const updateAndSaveReflections = (updatedReflections: Reflection[]) => {
-    // Get all reflections, update the ones that changed, then save all
-    const allCurrentReflections = getReflections();
-    const newAllReflections = allCurrentReflections.map(r => {
-      const updated = updatedReflections.find(ur => ur.id === r.id);
-      return updated ? updated : r;
-    });
-    saveReflections(newAllReflections);
-    loadFollowUpReflections(); // Reload follow-up reflections after saving
-  };
+  const handleToggleFlag = async (reflectionId: string) => {
+    const reflection = followUpReflections.find(r => r.id === reflectionId);
+    if (!reflection) return;
 
-  const handleToggleFlag = (reflectionId: string) => {
-    const updatedReflections = followUpReflections.map(r => {
-      if (r.id === reflectionId) {
-        return {
-          ...r,
-          isFlaggedForFollowUp: !r.isFlaggedForFollowUp,
-        };
-      }
-      return r;
-    });
-    updateAndSaveReflections(updatedReflections);
-    const isCurrentlyFlagged = updatedReflections.find(r => r.id === reflectionId)?.isFlaggedForFollowUp;
-    showSuccess(isCurrentlyFlagged ? "Reflection flagged for follow-up!" : "Flag removed.");
+    try {
+      const updatedReflection = await updateReflection(reflectionId, {
+        isFlaggedForFollowUp: !reflection.isFlaggedForFollowUp
+      });
+
+      setFollowUpReflections(prev => prev.map(r => r.id === reflectionId ? updatedReflection : r));
+      showSuccess(updatedReflection.isFlaggedForFollowUp ? "Reflection flagged for follow-up!" : "Flag removed.");
+    } catch (error) {
+      console.error("Failed to toggle flag:", error);
+      showError("Failed to update flag status.");
+    }
   };
 
   const getIcon = (type: string) => {
@@ -65,7 +71,11 @@ const FollowUp = () => {
       <h1 className="text-3xl font-bold mb-8 text-center">Follow-up Reminders</h1>
       <p className="text-center text-muted-foreground mb-8">Reflections you've flagged or received curiosity taps on.</p>
 
-      {followUpReflections.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      ) : followUpReflections.length === 0 ? (
         <p className="text-center text-muted-foreground">No reflections currently flagged for follow-up or with curiosity taps.</p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

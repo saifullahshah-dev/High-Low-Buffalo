@@ -5,24 +5,38 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { saveReflections, getReflections, getUserSettings } from '@/lib/storage';
-import { Reflection, UserSettings } from '@/types';
+import { createReflection, getUser } from '@/lib/api';
+import { ReflectionCreate, UserSettings } from '@/types';
 import { showSuccess, showError } from '@/utils/toast';
-import { v4 as uuidv4 } from 'uuid';
-import { Frown, Smile, Sparkles } from 'lucide-react';
+import { Frown, Smile, Sparkles, Loader2 } from 'lucide-react';
 
 const ReflectionForm = () => {
   const [high, setHigh] = useState('');
   const [low, setLow] = useState('');
   const [buffalo, setBuffalo] = useState('');
   const [sharedWith, setSharedWith] = useState<string>('self'); // 'self', 'friendId', 'herdId'
-  const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    notificationCadence: 'daily',
+    herds: [{ id: 'self', name: 'Just Me', members: [] }],
+    friends: [],
+  });
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    setUserSettings(getUserSettings());
+    const fetchSettings = async () => {
+      try {
+        const user = await getUser();
+        if (user.settings) {
+          setUserSettings(user.settings);
+        }
+      } catch (error) {
+        console.error('Failed to load user settings:', error);
+      }
+    };
+    fetchSettings();
   }, []);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
     if (!high.trim() || !low.trim() || !buffalo.trim()) {
@@ -30,24 +44,28 @@ const ReflectionForm = () => {
       return;
     }
 
-    const newReflection: Reflection = {
-      id: uuidv4(),
-      high: high.trim(),
-      low: low.trim(),
-      buffalo: buffalo.trim(),
-      timestamp: new Date().toISOString(),
-      sharedWith: [sharedWith],
-      curiosityReactions: {},
-    };
+    setIsSubmitting(true);
+    try {
+      const newReflection: ReflectionCreate = {
+        high: high.trim(),
+        low: low.trim(),
+        buffalo: buffalo.trim(),
+        sharedWith: [sharedWith],
+      };
 
-    const currentReflections = getReflections();
-    saveReflections([...currentReflections, newReflection]);
+      await createReflection(newReflection);
 
-    showSuccess("Your reflection has been shared!");
-    setHigh('');
-    setLow('');
-    setBuffalo('');
-    setSharedWith('self');
+      showSuccess("Your reflection has been shared!");
+      setHigh('');
+      setLow('');
+      setBuffalo('');
+      setSharedWith('self');
+    } catch (error) {
+      console.error("Failed to create reflection:", error);
+      showError("Failed to share reflection. Please try again.");
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const getIcon = (type: string) => {
@@ -122,8 +140,15 @@ const ReflectionForm = () => {
             </Select>
           </div>
 
-          <Button type="submit" className="w-full">
-            Share Reflection
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Sharing...
+              </>
+            ) : (
+              'Share Reflection'
+            )}
           </Button>
         </form>
       </CardContent>

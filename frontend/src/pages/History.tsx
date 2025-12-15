@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections, updateReflection, deleteReflection, getUserSettings } from '@/lib/storage';
-import { Reflection, UserSettings } from '@/types';
+import { getReflections, updateReflection, deleteReflection, getUser } from '@/lib/api';
+import { Reflection, UserSettings, ReflectionUpdate } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -8,22 +8,29 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
-import { Frown, Smile, Sparkles, Flag, Lightbulb, Edit, Trash2 } from 'lucide-react';
+import { Frown, Smile, Sparkles, Flag, Lightbulb, Edit, Trash2, Loader2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import EditReflectionDialog from '@/components/EditReflectionDialog'; // Import the new component
 
 const History = () => {
   const [allReflections, setAllReflections] = useState<Reflection[]>([]);
   const [filteredReflections, setFilteredReflections] = useState<Reflection[]>([]);
-  const [userSettings, setUserSettings] = useState<UserSettings>(getUserSettings());
+  const [userSettings, setUserSettings] = useState<UserSettings>({
+    notificationCadence: 'daily',
+    herds: [],
+    friends: []
+  });
   const [filterBy, setFilterBy] = useState<string>('all'); // 'all', 'self', friendId, herdId
+  const [isLoading, setIsLoading] = useState(true);
 
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [reflectionToEdit, setReflectionToEdit] = useState<Reflection | null>(null);
 
   useEffect(() => {
     loadReflections();
-    setUserSettings(getUserSettings());
+    getUser().then(user => {
+      if (user.settings) setUserSettings(user.settings);
+    }).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -36,24 +43,34 @@ const History = () => {
     setFilteredReflections(currentFiltered);
   }, [filterBy, allReflections]);
 
-  const loadReflections = () => {
-    const storedReflections = getReflections();
-    setAllReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+  const loadReflections = async () => {
+    setIsLoading(true);
+    try {
+      const storedReflections = await getReflections();
+      setAllReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()));
+    } catch (error) {
+      console.error("Failed to load reflections:", error);
+      showError("Failed to load reflections.");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleFlagForFollowUp = (reflectionId: string) => {
-    const updatedReflections = allReflections.map(r => {
-      if (r.id === reflectionId) {
-        return {
-          ...r,
-          isFlaggedForFollowUp: !r.isFlaggedForFollowUp,
-        };
-      }
-      return r;
-    });
-    updateReflectionStateAndStorage(updatedReflections);
-    const isCurrentlyFlagged = updatedReflections.find(r => r.id === reflectionId)?.isFlaggedForFollowUp;
-    showSuccess(isCurrentlyFlagged ? "Reflection flagged for follow-up!" : "Flag removed.");
+  const handleFlagForFollowUp = async (reflectionId: string) => {
+    const reflection = allReflections.find(r => r.id === reflectionId);
+    if (!reflection) return;
+
+    try {
+      const updatedReflection = await updateReflection(reflectionId, {
+        isFlaggedForFollowUp: !reflection.isFlaggedForFollowUp
+      });
+
+      setAllReflections(prev => prev.map(r => r.id === reflectionId ? updatedReflection : r));
+      showSuccess(updatedReflection.isFlaggedForFollowUp ? "Reflection flagged for follow-up!" : "Flag removed.");
+    } catch (error) {
+      console.error("Failed to flag reflection:", error);
+      showError("Failed to update flag status.");
+    }
   };
 
   const handleEditClick = (reflection: Reflection) => {
@@ -61,30 +78,34 @@ const History = () => {
     setIsEditDialogOpen(true);
   };
 
-  const handleSaveEdit = (updatedReflection: Reflection) => {
-    updateReflection(updatedReflection); // Update in localStorage
-    loadReflections(); // Reload all reflections to update state
-    showSuccess("Reflection updated successfully!");
+  const handleSaveEdit = async (updatedReflection: Reflection) => {
+    try {
+      const updateData: ReflectionUpdate = {
+        high: updatedReflection.high,
+        low: updatedReflection.low,
+        buffalo: updatedReflection.buffalo,
+        sharedWith: updatedReflection.sharedWith,
+      };
+
+      const result = await updateReflection(updatedReflection.id, updateData);
+      setAllReflections(prev => prev.map(r => r.id === result.id ? result : r));
+      showSuccess("Reflection updated successfully!");
+      setIsEditDialogOpen(false);
+    } catch (error) {
+      console.error("Failed to update reflection:", error);
+      showError("Failed to update reflection.");
+    }
   };
 
-  const handleDeleteReflection = (reflectionId: string) => {
-    deleteReflection(reflectionId); // Delete from localStorage
-    loadReflections(); // Reload all reflections to update state
-    showSuccess("Reflection deleted successfully!");
-  };
-
-  const updateReflectionStateAndStorage = (updatedReflections: Reflection[]) => {
-    setAllReflections(updatedReflections);
-    // This function is used for flagging, which only changes one reflection.
-    // We need to ensure the specific reflection is updated in storage, not the whole array.
-    // A more robust solution would be to pass the single updated reflection to updateReflection.
-    // For now, we'll iterate and update each changed reflection.
-    updatedReflections.forEach(r => {
-      const original = allReflections.find(orig => orig.id === r.id);
-      if (original && (original.isFlaggedForFollowUp !== r.isFlaggedForFollowUp)) {
-        updateReflection(r);
-      }
-    });
+  const handleDeleteReflection = async (reflectionId: string) => {
+    try {
+      await deleteReflection(reflectionId);
+      setAllReflections(prev => prev.filter(r => r.id !== reflectionId));
+      showSuccess("Reflection deleted successfully!");
+    } catch (error) {
+      console.error("Failed to delete reflection:", error);
+      showError("Failed to delete reflection.");
+    }
   };
 
   const getIcon = (type: string) => {
@@ -119,7 +140,11 @@ const History = () => {
         </Select>
       </div>
 
-      {filteredReflections.length === 0 ? (
+      {isLoading ? (
+        <div className="flex justify-center p-8">
+          <Loader2 className="h-8 w-8 animate-spin" />
+        </div>
+      ) : filteredReflections.length === 0 ? (
         <p className="text-center text-muted-foreground">No reflections found for this filter.</p>
       ) : (
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">

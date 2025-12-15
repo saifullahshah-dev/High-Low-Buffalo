@@ -1,61 +1,74 @@
 import React, { useState, useEffect } from 'react';
 import ReflectionForm from '@/components/ReflectionForm';
-import { getReflections, saveReflections } from '@/lib/storage';
+import { getReflections, updateReflection } from '@/lib/api';
 import { Reflection } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import { Frown, Smile, Sparkles, Lightbulb, Flag } from 'lucide-react';
-import { showSuccess } from '@/utils/toast';
+import { Frown, Smile, Sparkles, Lightbulb, Flag, Loader2 } from 'lucide-react';
+import { showSuccess, showError } from '@/utils/toast';
 
 const Index = () => {
   const [reflections, setReflections] = useState<Reflection[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  const fetchReflections = async () => {
+    setIsLoading(true);
+    try {
+      const data = await getReflections();
+      // Show only the most recent 3 reflections on the home page
+      setReflections(data.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 3));
+    } catch (error) {
+      console.error("Failed to fetch reflections:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   useEffect(() => {
-    const storedReflections = getReflections();
-    // Show only the most recent 3 reflections on the home page
-    setReflections(storedReflections.sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime()).slice(0, 3));
+    fetchReflections();
   }, []);
 
-  const updateAndSaveReflections = (updatedReflections: Reflection[]) => {
-    setReflections(updatedReflections);
-    // Ensure all reflections in localStorage are updated, not just the displayed ones
-    const allStoredReflections = getReflections();
-    const newAllStoredReflections = allStoredReflections.map(r => updatedReflections.find(ur => ur.id === r.id) || r);
-    saveReflections(newAllStoredReflections);
+  const handleCuriosityTap = async (reflectionId: string) => {
+    const reflectionToUpdate = reflections.find(r => r.id === reflectionId);
+    if (!reflectionToUpdate) return;
+
+    const currentCount = reflectionToUpdate.curiosityReactions[reflectionId] || 0;
+    const updatedReactions = {
+      ...reflectionToUpdate.curiosityReactions,
+      [reflectionId]: currentCount + 1,
+    };
+
+    try {
+      const updatedReflection = await updateReflection(reflectionId, {
+        curiosityReactions: updatedReactions
+      });
+
+      setReflections(prev => prev.map(r => r.id === reflectionId ? updatedReflection : r));
+      showSuccess("Curiosity noted! You can ask more about this later.");
+    } catch (error) {
+      console.error("Failed to update curiosity tap:", error);
+      showError("Failed to update curiosity tap.");
+    }
   };
 
-  const handleCuriosityTap = (reflectionId: string) => {
-    const updatedReflections = reflections.map(r => {
-      if (r.id === reflectionId) {
-        const currentCount = r.curiosityReactions[reflectionId] || 0;
-        return {
-          ...r,
-          curiosityReactions: {
-            ...r.curiosityReactions,
-            [reflectionId]: currentCount + 1,
-          },
-        };
-      }
-      return r;
-    });
-    updateAndSaveReflections(updatedReflections);
-    showSuccess("Curiosity noted! You can ask more about this later.");
-  };
+  const handleFlagForFollowUp = async (reflectionId: string) => {
+    const reflectionToUpdate = reflections.find(r => r.id === reflectionId);
+    if (!reflectionToUpdate) return;
 
-  const handleFlagForFollowUp = (reflectionId: string) => {
-    const updatedReflections = reflections.map(r => {
-      if (r.id === reflectionId) {
-        return {
-          ...r,
-          isFlaggedForFollowUp: !r.isFlaggedForFollowUp,
-        };
-      }
-      return r;
-    });
-    updateAndSaveReflections(updatedReflections);
-    const isCurrentlyFlagged = updatedReflections.find(r => r.id === reflectionId)?.isFlaggedForFollowUp;
-    showSuccess(isCurrentlyFlagged ? "Reflection flagged for follow-up!" : "Flag removed.");
+    const newFlagStatus = !reflectionToUpdate.isFlaggedForFollowUp;
+
+    try {
+      const updatedReflection = await updateReflection(reflectionId, {
+        isFlaggedForFollowUp: newFlagStatus
+      });
+
+      setReflections(prev => prev.map(r => r.id === reflectionId ? updatedReflection : r));
+      showSuccess(newFlagStatus ? "Reflection flagged for follow-up!" : "Flag removed.");
+    } catch (error) {
+      console.error("Failed to update flag status:", error);
+      showError("Failed to update flag status.");
+    }
   };
 
   const getIcon = (type: string) => {
@@ -73,7 +86,11 @@ const Index = () => {
 
       <section className="space-y-6">
         <h2 className="text-3xl font-bold text-center">Recent Reflections</h2>
-        {reflections.length === 0 ? (
+        {isLoading ? (
+          <div className="flex justify-center p-8">
+            <Loader2 className="h-8 w-8 animate-spin" />
+          </div>
+        ) : reflections.length === 0 ? (
           <p className="text-center text-muted-foreground">No recent reflections. Share your first High, Low, and Buffalo!</p>
         ) : (
           <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
