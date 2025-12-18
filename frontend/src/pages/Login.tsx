@@ -33,15 +33,11 @@ export default function Login() {
     e.preventDefault();
     setLoading(true);
     try {
-        const formData = new FormData();
+        const formData = new URLSearchParams();
         formData.append('username', email);
         formData.append('password', password);
         
-        const response = await api.post('/auth/token', formData, {
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        });
+        const response = await api.post('/auth/token', formData);
         login(response.data.access_token);
         toast({
             title: "Success",
@@ -70,14 +66,10 @@ export default function Login() {
         });
         
         // Auto login after signup
-        const formData = new FormData();
+        const formData = new URLSearchParams();
         formData.append('username', email);
         formData.append('password', password);
-        const response = await api.post('/auth/token', formData, {
-             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded'
-            }
-        });
+        const response = await api.post('/auth/token', formData);
         login(response.data.access_token);
         toast({
             title: "Success",

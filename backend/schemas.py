@@ -37,12 +37,21 @@ class Token(BaseModel):
 
 class TokenData(BaseModel):
     email: Optional[str] = None
+
+class FriendAddRequest(BaseModel):
+    email: EmailStr
+
+class ReactionRequest(BaseModel):
+    type: str = "curious"
+
 class ReflectionBase(BaseModel):
     high: str
     low: str
     buffalo: str
     sharedWith: list[str] = []
-    curiosityReactions: Optional[dict[str, int]] = {}
+    image: Optional[str] = None
+    # Dictionary mapping ReactionType -> List of UserIDs
+    curiosityReactions: dict[str, list[str]] = {}
     isFlaggedForFollowUp: Optional[bool] = False
 
 class ReflectionCreate(ReflectionBase):
@@ -53,7 +62,8 @@ class ReflectionUpdate(BaseModel):
     low: Optional[str] = None
     buffalo: Optional[str] = None
     sharedWith: Optional[list[str]] = None
-    curiosityReactions: Optional[dict[str, int]] = None
+    image: Optional[str] = None
+    curiosityReactions: Optional[dict[str, list[str]]] = None
     isFlaggedForFollowUp: Optional[bool] = None
 
 class Reflection(ReflectionBase):
@@ -65,3 +75,6 @@ class Reflection(ReflectionBase):
         populate_by_name = True
         arbitrary_types_allowed = True
         json_encoders = {ObjectId: str}
+
+class ReflectionFeedItem(Reflection):
+    author_name: str

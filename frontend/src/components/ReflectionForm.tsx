@@ -8,12 +8,13 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { createReflection, getUser } from '@/lib/api';
 import { ReflectionCreate, UserSettings } from '@/types';
 import { showSuccess, showError } from '@/utils/toast';
-import { Frown, Smile, Sparkles, Loader2 } from 'lucide-react';
+import { Frown, Smile, Sparkles, Loader2, Image as ImageIcon, X } from 'lucide-react';
 
 const ReflectionForm = () => {
   const [high, setHigh] = useState('');
   const [low, setLow] = useState('');
   const [buffalo, setBuffalo] = useState('');
+  const [image, setImage] = useState<string | null>(null);
   const [sharedWith, setSharedWith] = useState<string>('self'); // 'self', 'friendId', 'herdId'
   const [userSettings, setUserSettings] = useState<UserSettings>({
     notificationCadence: 'daily',
@@ -36,6 +37,25 @@ const ReflectionForm = () => {
     fetchSettings();
   }, []);
 
+  const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      if (file.size > 5 * 1024 * 1024) { // 5MB limit
+        showError("Image size must be less than 5MB");
+        return;
+      }
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setImage(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const removeImage = () => {
+    setImage(null);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
@@ -51,6 +71,7 @@ const ReflectionForm = () => {
         low: low.trim(),
         buffalo: buffalo.trim(),
         sharedWith: [sharedWith],
+        image: image || undefined,
       };
 
       await createReflection(newReflection);
@@ -59,6 +80,7 @@ const ReflectionForm = () => {
       setHigh('');
       setLow('');
       setBuffalo('');
+      setImage(null);
       setSharedWith('self');
     } catch (error) {
       console.error("Failed to create reflection:", error);
@@ -120,6 +142,49 @@ const ReflectionForm = () => {
               onChange={(e) => setBuffalo(e.target.value)}
               rows={3}
             />
+          </div>
+
+          <div className="space-y-2">
+            <Label>Photo (Optional)</Label>
+            <div className="flex items-start gap-4">
+              <div className="flex-1">
+                <Input
+                  id="image-upload"
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={handleImageUpload}
+                />
+                {!image ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full h-20 border-dashed"
+                    onClick={() => document.getElementById('image-upload')?.click()}
+                  >
+                    <ImageIcon className="mr-2 h-6 w-6 text-muted-foreground" />
+                    <span className="text-muted-foreground">Add a photo</span>
+                  </Button>
+                ) : (
+                  <div className="relative inline-block">
+                    <img
+                      src={image}
+                      alt="Preview"
+                      className="h-20 w-auto object-cover rounded-md border"
+                    />
+                    <Button
+                      type="button"
+                      variant="destructive"
+                      size="icon"
+                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full"
+                      onClick={removeImage}
+                    >
+                      <X className="h-3 w-3" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
 
           <div className="space-y-2">

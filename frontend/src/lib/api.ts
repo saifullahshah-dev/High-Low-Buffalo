@@ -1,5 +1,5 @@
 import axios from 'axios';
-import { Reflection, ReflectionCreate, ReflectionUpdate, User, UserSettings } from '@/types';
+import { Reflection, ReflectionCreate, ReflectionUpdate, User, UserSettings, Friend } from '@/types';
 
 const api = axios.create({
   baseURL: import.meta.env.PROD
@@ -43,5 +43,29 @@ export const getUser = async (): Promise<User> => {
 
 export const updateUserSettings = async (settings: UserSettings): Promise<User> => {
   const response = await api.put<User>('/users/me/settings', settings);
+  return response.data;
+};
+
+export const addFriend = async (email: string): Promise<void> => {
+  await api.post('/users/friends', { email });
+};
+
+export const getFriends = async (): Promise<Friend[]> => {
+  const response = await api.get<Friend[]>('/users/friends');
+  return response.data;
+};
+
+export const getFeed = async (): Promise<Reflection[]> => {
+  const response = await api.get<Reflection[]>('/reflections/feed');
+  return response.data;
+};
+
+export const reactToReflection = async (id: string, type: string): Promise<Reflection> => {
+  const response = await api.post<Reflection>(`/reflections/${id}/react`, { type });
+  return response.data;
+};
+
+export const flagReflection = async (id: string): Promise<Reflection> => {
+  const response = await api.post<Reflection>(`/reflections/${id}/flag`);
   return response.data;
 };

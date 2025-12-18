@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections, updateReflection, deleteReflection, getUser } from '@/lib/api';
+import { getReflections, updateReflection, deleteReflection, getUser, flagReflection } from '@/lib/api';
 import { Reflection, UserSettings, ReflectionUpdate } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
@@ -8,7 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Label } from '@/components/ui/label';
 import { AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent, AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle, AlertDialogTrigger } from '@/components/ui/alert-dialog';
 import { format } from 'date-fns';
-import { Frown, Smile, Sparkles, Flag, Lightbulb, Edit, Trash2, Loader2 } from 'lucide-react';
+import { Frown, Smile, Sparkles, Flag, Lightbulb, Edit, Trash2, Loader2, Share2 } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 import EditReflectionDialog from '@/components/EditReflectionDialog'; // Import the new component
 
@@ -61,9 +61,7 @@ const History = () => {
     if (!reflection) return;
 
     try {
-      const updatedReflection = await updateReflection(reflectionId, {
-        isFlaggedForFollowUp: !reflection.isFlaggedForFollowUp
-      });
+      const updatedReflection = await flagReflection(reflectionId);
 
       setAllReflections(prev => prev.map(r => r.id === reflectionId ? updatedReflection : r));
       showSuccess(updatedReflection.isFlaggedForFollowUp ? "Reflection flagged for follow-up!" : "Flag removed.");
@@ -106,6 +104,16 @@ const History = () => {
       console.error("Failed to delete reflection:", error);
       showError("Failed to delete reflection.");
     }
+  };
+
+  const handleShare = (reflection: Reflection) => {
+    const text = `High: ${reflection.high}\nLow: ${reflection.low}\nBuffalo: ${reflection.buffalo}\n\nShared via High-Low-Buffalo`;
+    navigator.clipboard.writeText(text).then(() => {
+      showSuccess("Copied to clipboard!");
+    }).catch((err) => {
+      console.error("Failed to copy:", err);
+      showError("Failed to copy to clipboard.");
+    });
   };
 
   const getIcon = (type: string) => {
@@ -169,6 +177,15 @@ const History = () => {
                 </p>
               </CardHeader>
               <CardContent className="flex-1 flex flex-col gap-4">
+                {reflection.image && (
+                  <div className="mb-2">
+                    <img
+                      src={reflection.image}
+                      alt="Reflection attachment"
+                      className="rounded-md w-full object-cover max-h-64"
+                    />
+                  </div>
+                )}
                 <div>
                   <h3 className="font-semibold flex items-center gap-2 mb-1">
                     {getIcon('high')} High:
@@ -189,10 +206,19 @@ const History = () => {
                 </div>
                 <div className="mt-auto flex justify-between items-center pt-4 border-t">
                   <div className="flex gap-2">
-                    {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleShare(reflection)}
+                      className="flex items-center gap-2 text-muted-foreground hover:text-foreground px-2"
+                      title="Copy to clipboard"
+                    >
+                      <Share2 className="h-4 w-4" />
+                    </Button>
+                    {Object.values(reflection.curiosityReactions).reduce((sum, userIds) => sum + userIds.length, 0) > 0 && (
                       <span className="text-sm text-muted-foreground flex items-center">
                         <Lightbulb className="h-4 w-4 mr-1" />
-                        {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0)} taps
+                        {Object.values(reflection.curiosityReactions).reduce((sum, userIds) => sum + userIds.length, 0)} taps
                       </span>
                     )}
                     <Button

@@ -7,7 +7,8 @@ app = FastAPI()
 # Configure CORS
 origins = [
     "https://high-low-buffalo-proj.onrender.com",
-    "http://localhost:5137",
+    "http://localhost:5139",
+    "http://localhost:5137"
 ]
 
 app.add_middleware(

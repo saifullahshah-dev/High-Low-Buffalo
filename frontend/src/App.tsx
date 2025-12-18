@@ -8,6 +8,7 @@ import Index from "./pages/Index";
 import History from "./pages/History";
 import Settings from "./pages/Settings";
 import FollowUp from "./pages/FollowUp"; // Import the new FollowUp page
+import Feed from "./pages/Feed";
 import NotFound from "./pages/NotFound";
 import Login from "./pages/Login";
 import { AuthProvider } from "./context/AuthContext";
@@ -43,6 +44,11 @@ const App = () => (
               <Route path="/follow-up" element={
                 <ProtectedRoute>
                   <FollowUp />
+                </ProtectedRoute>
+              } />
+              <Route path="/feed" element={
+                <ProtectedRoute>
+                  <Feed />
                 </ProtectedRoute>
               } />
               {/* ADD ALL CUSTOM ROUTES ABOVE THE CATCH-ALL "*" ROUTE */}

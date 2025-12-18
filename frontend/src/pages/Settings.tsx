@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { getUser, updateUserSettings } from '@/lib/api';
-import { UserSettings, Herd } from '@/types';
+import { getUser, updateUserSettings, addFriend, getFriends } from '@/lib/api';
+import { UserSettings, Herd, Friend } from '@/types';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { RadioGroup, RadioGroupItem } from '@/components/ui/radio-group';
@@ -15,21 +15,24 @@ const Settings = () => {
     herds: [{ id: 'self', name: 'Just Me', members: [] }],
     friends: [],
   });
-  const [newFriendName, setNewFriendName] = useState('');
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [newFriendEmail, setNewFriendEmail] = useState('');
   const [newHerdName, setNewHerdName] = useState('');
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchData = async () => {
       try {
         const user = await getUser();
         if (user.settings) {
           setSettings(user.settings);
         }
+        const friends = await getFriends();
+        setFriendsList(friends);
       } catch (error) {
-        console.error('Failed to load settings:', error);
+        console.error('Failed to load settings or friends:', error);
       }
     };
-    fetchSettings();
+    fetchData();
   }, []);
 
   const save = async (newSettings: UserSettings) => {
@@ -48,28 +51,20 @@ const Settings = () => {
     showSuccess(`Notification cadence set to ${value}.`);
   };
 
-  const handleAddFriend = () => {
-    const name = newFriendName.trim();
-    if (name && !settings.friends.includes(name)) {
-      const newSettings = {
-        ...settings,
-        friends: [...settings.friends, name],
-      };
-      save(newSettings);
-      setNewFriendName('');
-      showSuccess(`Friend "${name}" added.`);
-    } else if (settings.friends.includes(name)) {
-      showError(`Friend "${name}" already exists.`);
-    }
-  };
+  const handleAddFriend = async () => {
+    const email = newFriendEmail.trim();
+    if (!email) return;
 
-  const handleRemoveFriend = (friendToRemove: string) => {
-    const newSettings = {
-      ...settings,
-      friends: settings.friends.filter(friend => friend !== friendToRemove),
-    };
-    save(newSettings);
-    showSuccess(`Friend "${friendToRemove}" removed.`);
+    try {
+      await addFriend(email);
+      const friends = await getFriends();
+      setFriendsList(friends);
+      setNewFriendEmail('');
+      showSuccess(`Friend request sent to "${email}".`);
+    } catch (error) {
+      console.error('Failed to add friend:', error);
+      showError('Failed to add friend. They might not be registered or already added.');
+    }
   };
 
   const handleAddHerd = () => {
@@ -140,9 +135,9 @@ const Settings = () => {
         <CardContent className="space-y-4">
           <div className="flex gap-2">
             <Input
-              placeholder="Friend's name"
-              value={newFriendName}
-              onChange={(e) => setNewFriendName(e.target.value)}
+              placeholder="Friend's email"
+              value={newFriendEmail}
+              onChange={(e) => setNewFriendEmail(e.target.value)}
               onKeyPress={(e) => e.key === 'Enter' && handleAddFriend()}
             />
             <Button onClick={handleAddFriend}>
@@ -150,15 +145,16 @@ const Settings = () => {
             </Button>
           </div>
           <div className="space-y-2">
-            {settings.friends.length === 0 ? (
+            {friendsList.length === 0 ? (
               <p className="text-sm text-muted-foreground">No friends added yet.</p>
             ) : (
-              settings.friends.map((friend) => (
-                <div key={friend} className="flex items-center justify-between p-2 border rounded-md">
-                  <span>{friend}</span>
-                  <Button variant="ghost" size="icon" onClick={() => handleRemoveFriend(friend)}>
-                    <Trash2 className="h-4 w-4 text-destructive" />
-                  </Button>
+              friendsList.map((friend) => (
+                <div key={friend.id} className="flex items-center justify-between p-2 border rounded-md">
+                  <div>
+                    <span className="font-medium">{friend.full_name || 'Unnamed'}</span>
+                    <span className="text-sm text-muted-foreground ml-2">({friend.email})</span>
+                  </div>
+                  {/* Remove friend functionality not implemented in backend yet */}
                 </div>
               ))
             )}

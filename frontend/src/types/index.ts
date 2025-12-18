@@ -7,15 +7,18 @@ export interface Reflection {
   buffalo: string;
   timestamp: string; // ISO date string
   sharedWith: string[]; // IDs of herds/friends
-  curiosityReactions: { [reflectionId: string]: number }; // Count of curiosity reactions
+  image?: string; // Base64 string of the image
+  curiosityReactions: Record<string, string[]>; // Mapping reaction type to list of user IDs
   isFlaggedForFollowUp?: boolean; // New: Flag to remind user to ask for more detail
   user_id?: string;
+  author_name?: string;
 }
 
 export interface ReflectionCreate {
   high: string;
   low: string;
   buffalo: string;
+  image?: string;
   sharedWith: string[];
 }
 
@@ -23,8 +26,9 @@ export interface ReflectionUpdate {
   high?: string;
   low?: string;
   buffalo?: string;
+  image?: string;
   sharedWith?: string[];
-  curiosityReactions?: { [reflectionId: string]: number };
+  curiosityReactions?: Record<string, string[]>;
   isFlaggedForFollowUp?: boolean;
 }
 
@@ -45,4 +49,10 @@ export interface User {
   email: string;
   full_name?: string;
   settings?: UserSettings;
+}
+
+export interface Friend {
+  id: string;
+  email: string;
+  full_name: string;
 }
