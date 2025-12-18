@@ -5,8 +5,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from '@/components/ui/dialog';
-import { Reflection, UserSettings } from '@/types';
-import { getUser } from '@/lib/api';
+import { Reflection, UserSettings, Friend, Herd } from '@/types';
+import { getUser, getFriends, getHerds } from '@/lib/api';
 import { Frown, Smile, Sparkles, Loader2 } from 'lucide-react';
 
 interface EditReflectionDialogProps {
@@ -23,9 +23,9 @@ const EditReflectionDialog: React.FC<EditReflectionDialogProps> = ({ reflection,
   const [sharedWith, setSharedWith] = useState<string>(reflection.sharedWith[0] || 'self');
   const [userSettings, setUserSettings] = useState<UserSettings>({
     notificationCadence: 'daily',
-    herds: [],
-    friends: []
   });
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [herdsList, setHerdsList] = useState<Herd[]>([]);
   const [isSaving, setIsSaving] = useState(false);
 
   useEffect(() => {
@@ -38,6 +38,8 @@ const EditReflectionDialog: React.FC<EditReflectionDialogProps> = ({ reflection,
     getUser().then(user => {
       if (user.settings) setUserSettings(user.settings);
     }).catch(console.error);
+    getFriends().then(setFriendsList).catch(console.error);
+    getHerds().then(setHerdsList).catch(console.error);
   }, [reflection]);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -122,10 +124,12 @@ const EditReflectionDialog: React.FC<EditReflectionDialogProps> = ({ reflection,
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="self">Just Me (Private)</SelectItem>
-                {userSettings.friends.map(friend => (
-                  <SelectItem key={friend} value={friend}>{friend}</SelectItem>
+                {friendsList.map(friend => (
+                  <SelectItem key={friend.id} value={friend.id}>
+                    {friend.full_name || friend.email}
+                  </SelectItem>
                 ))}
-                {userSettings.herds.filter(h => h.id !== 'self').map(herd => (
+                {herdsList.map(herd => (
                   <SelectItem key={herd.id} value={herd.id}>{herd.name} (Herd)</SelectItem>
                 ))}
               </SelectContent>

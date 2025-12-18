@@ -6,7 +6,7 @@ import schemas, security
 
 router = APIRouter()
 
-@router.post("/signup", response_model=schemas.User)
+@router.post("/signup", response_model=schemas.User, response_model_by_alias=False)
 async def create_user(user: schemas.UserCreate):
     user_exists = await db.users.find_one({"email": user.email})
     if user_exists:
@@ -22,7 +22,7 @@ async def create_user(user: schemas.UserCreate):
     if not user_dict.get("settings"):
         user_dict["settings"] = {
             "notificationCadence": "daily",
-            "herds": [{"id": "self", "name": "Just Me", "members": []}],
+            "herds": [],
             "friends": []
         }
     

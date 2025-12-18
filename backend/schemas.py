@@ -1,18 +1,52 @@
-from pydantic import BaseModel, EmailStr, Field, BeforeValidator
-from typing import Optional, Annotated, Any
+from pydantic import BaseModel, EmailStr, Field, BeforeValidator, field_validator
+from typing import Optional, Annotated, Any, List
+from datetime import datetime
 from bson import ObjectId
 
 PyObjectId = Annotated[str, BeforeValidator(str)]
 
-class Herd(BaseModel):
-    id: str
+class HerdMember(BaseModel):
+    user_id: str
+    email: EmailStr
+    joined_at: datetime
+    role: str = "member"
+
+class HerdBase(BaseModel):
     name: str
-    members: list[str] = []
+    description: Optional[str] = None
+
+class HerdCreate(HerdBase):
+    pass
+
+class HerdUpdate(BaseModel):
+    name: Optional[str] = None
+    description: Optional[str] = None
+    members: Optional[List[HerdMember]] = None
+
+class Herd(HerdBase):
+    id: Optional[PyObjectId] = Field(alias="_id", default=None)
+    owner_id: str
+    members: List[HerdMember] = []
+    created_at: str
+    updated_at: str
+
+    class Config:
+        populate_by_name = True
+        arbitrary_types_allowed = True
+        json_encoders = {ObjectId: str}
 
 class UserSettings(BaseModel):
     notificationCadence: str = "daily"
-    herds: list[Herd] = []
+    herds: list[str] = []
     friends: list[str] = []
+
+    @field_validator('herds', mode='before')
+    @classmethod
+    def validate_herds(cls, v: Any) -> list[str]:
+        if not isinstance(v, list):
+            return []
+        # Filter out non-string items (legacy dicts) to prevent validation errors
+        return [item for item in v if isinstance(item, str)]
 
 class UserBase(BaseModel):
     email: EmailStr
@@ -49,6 +83,7 @@ class ReflectionBase(BaseModel):
     low: str
     buffalo: str
     sharedWith: list[str] = []
+    sharedHerds: list[str] = []
     image: Optional[str] = None
     # Dictionary mapping ReactionType -> List of UserIDs
     curiosityReactions: dict[str, list[str]] = {}
@@ -62,6 +97,7 @@ class ReflectionUpdate(BaseModel):
     low: Optional[str] = None
     buffalo: Optional[str] = None
     sharedWith: Optional[list[str]] = None
+    sharedHerds: Optional[list[str]] = None
     image: Optional[str] = None
     curiosityReactions: Optional[dict[str, list[str]]] = None
     isFlaggedForFollowUp: Optional[bool] = None
