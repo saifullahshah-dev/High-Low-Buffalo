@@ -5,8 +5,8 @@ import { Textarea } from '@/components/ui/textarea';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Label } from '@/components/ui/label';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { createReflection, getUser } from '@/lib/api';
-import { ReflectionCreate, UserSettings } from '@/types';
+import { createReflection, getUser, getFriends, getHerds } from '@/lib/api';
+import { ReflectionCreate, UserSettings, Friend, Herd } from '@/types';
 import { showSuccess, showError } from '@/utils/toast';
 import { Frown, Smile, Sparkles, Loader2, Image as ImageIcon, X } from 'lucide-react';
 
@@ -18,23 +18,27 @@ const ReflectionForm = () => {
   const [sharedWith, setSharedWith] = useState<string>('self'); // 'self', 'friendId', 'herdId'
   const [userSettings, setUserSettings] = useState<UserSettings>({
     notificationCadence: 'daily',
-    herds: [{ id: 'self', name: 'Just Me', members: [] }],
-    friends: [],
   });
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [herdsList, setHerdsList] = useState<Herd[]>([]);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   useEffect(() => {
-    const fetchSettings = async () => {
+    const fetchData = async () => {
       try {
         const user = await getUser();
         if (user.settings) {
           setUserSettings(user.settings);
         }
+        const friends = await getFriends();
+        setFriendsList(friends);
+        const herds = await getHerds();
+        setHerdsList(herds);
       } catch (error) {
-        console.error('Failed to load user settings:', error);
+        console.error('Failed to load user settings, friends, or herds:', error);
       }
     };
-    fetchSettings();
+    fetchData();
   }, []);
 
   const handleImageUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -195,10 +199,12 @@ const ReflectionForm = () => {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="self">Just Me (Private)</SelectItem>
-                {userSettings.friends.map(friend => (
-                  <SelectItem key={friend} value={friend}>{friend}</SelectItem>
+                {friendsList.map(friend => (
+                  <SelectItem key={friend.id} value={friend.id}>
+                    {friend.full_name || friend.email}
+                  </SelectItem>
                 ))}
-                {userSettings.herds.filter(h => h.id !== 'self').map(herd => (
+                {herdsList.map(herd => (
                   <SelectItem key={herd.id} value={herd.id}>{herd.name} (Herd)</SelectItem>
                 ))}
               </SelectContent>

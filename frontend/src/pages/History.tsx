@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections, updateReflection, deleteReflection, getUser, flagReflection } from '@/lib/api';
-import { Reflection, UserSettings, ReflectionUpdate } from '@/types';
+import { getReflections, updateReflection, deleteReflection, getUser, flagReflection, getFriends, getHerds } from '@/lib/api';
+import { Reflection, UserSettings, ReflectionUpdate, Friend, Herd } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -17,9 +17,9 @@ const History = () => {
   const [filteredReflections, setFilteredReflections] = useState<Reflection[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings>({
     notificationCadence: 'daily',
-    herds: [],
-    friends: []
   });
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [herdsList, setHerdsList] = useState<Herd[]>([]);
   const [filterBy, setFilterBy] = useState<string>('all'); // 'all', 'self', friendId, herdId
   const [isLoading, setIsLoading] = useState(true);
 
@@ -31,6 +31,8 @@ const History = () => {
     getUser().then(user => {
       if (user.settings) setUserSettings(user.settings);
     }).catch(console.error);
+    getFriends().then(setFriendsList).catch(console.error);
+    getHerds().then(setHerdsList).catch(console.error);
   }, []);
 
   useEffect(() => {
@@ -138,10 +140,12 @@ const History = () => {
           <SelectContent>
             <SelectItem value="all">All Reflections</SelectItem>
             <SelectItem value="self">Just Me (Private)</SelectItem>
-            {userSettings.friends.map(friend => (
-              <SelectItem key={friend} value={friend}>{friend}</SelectItem>
+            {friendsList.map(friend => (
+              <SelectItem key={friend.id} value={friend.id}>
+                {friend.full_name || friend.email}
+              </SelectItem>
             ))}
-            {userSettings.herds.filter(h => h.id !== 'self').map(herd => (
+            {herdsList.map(herd => (
               <SelectItem key={herd.id} value={herd.id}>{herd.name} (Herd)</SelectItem>
             ))}
           </SelectContent>
@@ -164,9 +168,9 @@ const History = () => {
                   <Badge variant="secondary" className="text-xs">
                     Shared with: {reflection.sharedWith.length > 0 ? reflection.sharedWith.map(id => {
                       if (id === 'self') return 'Self';
-                      const friend = userSettings.friends.find(f => f === id);
-                      if (friend) return friend;
-                      const herd = userSettings.herds.find(h => h.id === id);
+                      const friend = friendsList.find(f => f.id === id);
+                      if (friend) return friend.full_name || friend.email;
+                      const herd = herdsList.find(h => h.id === id);
                       if (herd) return herd.name;
                       return id; // Fallback if ID not found
                     }).join(', ') : 'Self'}

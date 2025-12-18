@@ -13,11 +13,18 @@ router = APIRouter()
 async def read_reflection_feed(
     current_user: User = Depends(get_current_user)
 ):
+    # Fetch herds user belongs to
+    user_herds = await db.herds.find({"members.user_id": str(current_user.id)}).to_list(1000)
+    user_herd_ids = [str(h["_id"]) for h in user_herds]
+
     pipeline = [
-        # Match reflections shared with the current user
+        # Match reflections shared with the current user OR shared with one of their herds
         {
             "$match": {
-                "sharedWith": str(current_user.id)
+                "$or": [
+                    {"sharedWith": str(current_user.id)},
+                    {"sharedHerds": {"$in": user_herd_ids}}
+                ]
             }
         },
         # Sort by timestamp descending
@@ -79,17 +86,36 @@ async def react_to_reflection(
     if not reflection:
         raise HTTPException(status_code=404, detail="Reflection not found")
 
-    # 2. Check permissions (must be shared with user)
-    # Note: Authors can also react to their own posts if they are in sharedWith list?
-    # Or implicitly if they own it?
-    # Architecture says: "Check if current_user.id is in sharedWith"
-    # Let's assume author can also react if they want, but usually this is for friends.
-    # We will enforce the sharedWith check strictly as per architecture.
-    if str(current_user.id) not in reflection.get("sharedWith", []):
-         # Allow author to react to their own reflection even if not explicitly shared with self?
-         # It's safer to allow author access.
-         if reflection.get("user_id") != str(current_user.id):
-            raise HTTPException(status_code=403, detail="Not authorized to view this reflection")
+    # 2. Check permissions (must be shared with user directly or via herd)
+    user_id = str(current_user.id)
+    has_access = False
+
+    # Check direct share
+    if user_id in reflection.get("sharedWith", []):
+        has_access = True
+    
+    # Check ownership
+    elif reflection.get("user_id") == user_id:
+        has_access = True
+        
+    # Check herd share
+    else:
+        shared_herds = reflection.get("sharedHerds", [])
+        if shared_herds:
+            # Check if user is a member of any of these herds
+            # Convert herd IDs to ObjectIds
+            herd_obj_ids = [ObjectId(h_id) for h_id in shared_herds if ObjectId.is_valid(h_id)]
+            
+            if herd_obj_ids:
+                count = await db.herds.count_documents({
+                    "_id": {"$in": herd_obj_ids},
+                    "members.user_id": user_id
+                })
+                if count > 0:
+                    has_access = True
+
+    if not has_access:
+        raise HTTPException(status_code=403, detail="Not authorized to view this reflection")
 
     reaction_type = reaction.type
     user_id = str(current_user.id)

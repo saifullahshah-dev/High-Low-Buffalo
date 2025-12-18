@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from routers import auth, users, reflections
+from routers import auth, users, reflections, notifications, herds
 
 app = FastAPI()
 
@@ -26,3 +26,5 @@ def read_root():
 app.include_router(auth.router, prefix="/api/v1/auth", tags=["auth"])
 app.include_router(users.router, prefix="/api/v1/users", tags=["users"])
 app.include_router(reflections.router, prefix="/api/v1/reflections", tags=["reflections"])
+app.include_router(notifications.router, prefix="/api/v1/notifications", tags=["notifications"])
+app.include_router(herds.router, prefix="/api/v1/herds", tags=["herds"])

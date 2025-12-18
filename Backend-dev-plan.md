@@ -2,14 +2,14 @@
 
 ## 1️⃣ Executive Summary
 - **Goal:** Build a robust FastAPI backend to support the "High-Low-Buffalo" reflection app.
-- **Current State:** Basic Auth & User structure exists; Core "Reflection" logic is missing.
+- **Current State:** Basic Auth & User structure exists; Core "Reflection" logic is missing; Notification logic is missing.
 - **Constraints:**
   - FastAPI (Python 3.13)
   - MongoDB Atlas (Motor, Pydantic v2)
   - No Docker
   - Single branch `main`
   - Manual verification after every task
-- **Strategy:** 3 Sprints (Setup/Fixes → Reflections CRUD → Social/Settings).
+- **Strategy:** 4 Sprints (Setup/Fixes → Reflections CRUD → Social/Settings → Notifications).
 
 ---
 
@@ -19,10 +19,12 @@
   - Reflections (Create, Read History, Update, Delete)
   - Reflection Attributes: High, Low, Buffalo, SharedWith
   - User Settings (Managing Friends/Herds for sharing context)
+  - **Notifications:** Email reminders based on user cadence (Daily/Weekly).
 - **Success Criteria:**
   - Frontend `api.ts` connects successfully to all endpoints
   - User can complete the daily reflection flow end-to-end
   - History page loads real data from MongoDB
+  - Triggering the reminder endpoint sends emails (mocked or real) to correct users.
 
 ---
 
@@ -42,7 +44,10 @@
 - `DELETE /reflections/{id}` — Remove entry
 
 ### User Settings (New)
-- `PUT /users/me/settings` — Update friends/herds lists
+- `PUT /users/me/settings` — Update friends/herds lists & notification cadence
+
+### Notifications (New)
+- `POST /notifications/trigger` — (Admin/Cron) Checks all users' cadence and sends emails if due.
 
 ---
 
@@ -56,7 +61,8 @@
   "hashed_password": "...",
   "full_name": "Jane Doe",
   "settings": {
-    "friends": ["Friend Name"],
+    "notificationCadence": "daily",
+    "friends": ["FriendID"],
     "herds": [{"id": "1", "name": "Family", "members": []}]
   }
 }
@@ -86,8 +92,8 @@
 | `ReflectionForm.tsx` | `POST /reflections` | 🔴 Missing |
 | `History.tsx` | `GET /reflections` | 🔴 Missing |
 | `EditReflectionDialog.tsx` | `PUT /reflections/{id}` | 🔴 Missing |
-| `Layout.tsx` (Logout) | `POST /auth/logout` | 🟡 Partially Implemented |
-| `ReflectionForm.tsx` (Select) | `GET /users/me` (for settings) | 🟡 Needs update |
+| `Settings.tsx` | `PUT /users/me/settings` | 🟡 Partially Implemented |
+| `Settings.tsx` (Cadence) | `POST /notifications/trigger` | 🔴 Missing |
 
 ---
 
@@ -98,6 +104,11 @@
 - `JWT_SECRET`: *[User Provided]*
 - `JWT_EXPIRES_IN`: 604800 (7 days)
 - `CORS_ORIGINS`: `http://localhost:5173,http://localhost:8080`
+- `SMTP_HOST`: (Optional) e.g., smtp.gmail.com
+- `SMTP_PORT`: (Optional) e.g., 587
+- `SMTP_USER`: (Optional)
+- `SMTP_PASSWORD`: (Optional)
+- `EMAILS_FROM_EMAIL`: (Optional) noreply@highlowbuffalo.com
 
 ---
 
@@ -137,6 +148,23 @@
 - [ ] **Update User Model:** Add `settings` field (friends/herds) to User schema.
 - [ ] **Update User Endpoint:** Ensure `GET /users/me` returns `settings`.
   - *Test:* Check React DevTools/Network -> User object includes `settings`.
-- [ ] **Implement Settings Update:** `PUT /users/me/settings` (Optional, if UI exists).
+- [ ] **Implement Settings Update:** `PUT /users/me/settings` (Ensure cadence is saved).
+  - *Test:* Change cadence to "Weekly" -> Refresh -> Persists.
 - [ ] **Flag for Follow-up:** Ensure `is_flagged` is toggleable via Update endpoint.
   - *Test:* Click flag icon -> Icon changes state (filled/unfilled).
+
+### 🔔 S3 – Notifications & Reminders
+**Objectives:** Enable email reminders for users who haven't reflected.
+- [ ] **Setup Email Utility:** Create `utils/email.py` using `smtplib` (or `fastapi-mail` if preferred, but keep simple). Mock if credentials missing.
+- [ ] **Create Trigger Endpoint:** `POST /notifications/trigger`
+  - **Logic:**
+    1. Fetch all users.
+    2. Filter:
+       - `daily`: Check if reflection exists for Today.
+       - `weekly`: Check if reflection exists for last 7 days.
+    3. If missing reflection, send email.
+  - *Test:*
+    1. Set your user to "Daily".
+    2. Ensure no reflection for today (delete if needed).
+    3. Hit `POST /api/v1/notifications/trigger` via Swagger/Postman.
+    4. Check Console Logs (for Mock) or Inbox (for Real) for "Reminder: Time to Reflect!".

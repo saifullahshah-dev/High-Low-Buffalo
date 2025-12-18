@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { getReflections, updateReflection, getUser } from '@/lib/api';
-import { Reflection, UserSettings } from '@/types';
+import { getReflections, updateReflection, getUser, getFriends, getHerds } from '@/lib/api';
+import { Reflection, UserSettings, Friend, Herd } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -12,9 +12,9 @@ const FollowUp = () => {
   const [followUpReflections, setFollowUpReflections] = useState<Reflection[]>([]);
   const [userSettings, setUserSettings] = useState<UserSettings>({
     notificationCadence: 'daily',
-    herds: [],
-    friends: []
   });
+  const [friendsList, setFriendsList] = useState<Friend[]>([]);
+  const [herdsList, setHerdsList] = useState<Herd[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -22,6 +22,8 @@ const FollowUp = () => {
     getUser().then(user => {
       if (user.settings) setUserSettings(user.settings);
     }).catch(console.error);
+    getFriends().then(setFriendsList).catch(console.error);
+    getHerds().then(setHerdsList).catch(console.error);
   }, []);
 
   const loadFollowUpReflections = async () => {
@@ -29,7 +31,7 @@ const FollowUp = () => {
     try {
       const allStoredReflections = await getReflections();
       const filtered = allStoredReflections
-        .filter(r => r.isFlaggedForFollowUp || Object.values(r.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0)
+        .filter(r => r.isFlaggedForFollowUp || Object.values(r.curiosityReactions).reduce((sum, userIds) => sum + userIds.length, 0) > 0)
         .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime());
       setFollowUpReflections(filtered);
     } catch (error) {
@@ -87,9 +89,9 @@ const FollowUp = () => {
                   <Badge variant="secondary" className="text-xs">
                     Shared with: {reflection.sharedWith.length > 0 ? reflection.sharedWith.map(id => {
                       if (id === 'self') return 'Self';
-                      const friend = userSettings.friends.find(f => f === id);
-                      if (friend) return friend;
-                      const herd = userSettings.herds.find(h => h.id === id);
+                      const friend = friendsList.find(f => f.id === id);
+                      if (friend) return friend.full_name || friend.email;
+                      const herd = herdsList.find(h => h.id === id);
                       if (herd) return herd.name;
                       return id; // Fallback if ID not found
                     }).join(', ') : 'Self'}
@@ -120,10 +122,10 @@ const FollowUp = () => {
                 </div>
                 <div className="mt-auto flex justify-between items-center pt-4 border-t">
                   <div className="flex gap-2">
-                    {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0) > 0 && (
+                    {Object.values(reflection.curiosityReactions).reduce((sum, userIds) => sum + userIds.length, 0) > 0 && (
                       <span className="text-sm text-muted-foreground flex items-center">
                         <Lightbulb className="h-4 w-4 mr-1" />
-                        {Object.values(reflection.curiosityReactions).reduce((sum, count) => sum + count, 0)} taps
+                        {Object.values(reflection.curiosityReactions).reduce((sum, userIds) => sum + userIds.length, 0)} taps
                       </span>
                     )}
                     <Button

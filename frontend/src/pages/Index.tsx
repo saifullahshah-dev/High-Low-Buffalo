@@ -1,16 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import ReflectionForm from '@/components/ReflectionForm';
-import { getReflections, updateReflection } from '@/lib/api';
+import { getReflections, updateReflection, getNotificationStatus, reactToReflection } from '@/lib/api';
 import { Reflection } from '@/types';
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from '@/components/ui/button';
 import { formatDistanceToNow } from 'date-fns';
-import { Frown, Smile, Sparkles, Lightbulb, Flag, Loader2 } from 'lucide-react';
+import { Frown, Smile, Sparkles, Lightbulb, Flag, Loader2, Bell } from 'lucide-react';
 import { showSuccess, showError } from '@/utils/toast';
 
 const Index = () => {
   const [reflections, setReflections] = useState<Reflection[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [notification, setNotification] = useState<{ needed: boolean; message: string } | null>(null);
+
+  const checkNotification = async () => {
+    try {
+      const status = await getNotificationStatus();
+      if (status.reminder_needed) {
+        setNotification({ needed: true, message: status.message });
+      }
+    } catch (error) {
+      console.error("Failed to check notification status:", error);
+    }
+  };
 
   const fetchReflections = async () => {
     setIsLoading(true);
@@ -27,25 +40,14 @@ const Index = () => {
 
   useEffect(() => {
     fetchReflections();
+    checkNotification();
   }, []);
 
   const handleCuriosityTap = async (reflectionId: string) => {
-    const reflectionToUpdate = reflections.find(r => r.id === reflectionId);
-    if (!reflectionToUpdate) return;
-
-    const currentCount = reflectionToUpdate.curiosityReactions[reflectionId] || 0;
-    const updatedReactions = {
-      ...reflectionToUpdate.curiosityReactions,
-      [reflectionId]: currentCount + 1,
-    };
-
     try {
-      const updatedReflection = await updateReflection(reflectionId, {
-        curiosityReactions: updatedReactions
-      });
-
+      const updatedReflection = await reactToReflection(reflectionId, 'curious');
       setReflections(prev => prev.map(r => r.id === reflectionId ? updatedReflection : r));
-      showSuccess("Curiosity noted! You can ask more about this later.");
+      showSuccess("Curiosity noted!");
     } catch (error) {
       console.error("Failed to update curiosity tap:", error);
       showError("Failed to update curiosity tap.");
@@ -82,6 +84,16 @@ const Index = () => {
 
   return (
     <div className="container mx-auto py-8 space-y-12">
+      {notification?.needed && (
+        <Alert>
+          <Bell className="h-4 w-4" />
+          <AlertTitle>Reminder</AlertTitle>
+          <AlertDescription>
+            {notification.message}
+          </AlertDescription>
+        </Alert>
+      )}
+      
       <ReflectionForm />
 
       <section className="space-y-6">
@@ -147,9 +159,9 @@ const Index = () => {
                         Flag
                       </Button>
                     </div>
-                    {(reflection.curiosityReactions[reflection.id] || 0) > 0 && (
+                    {(reflection.curiosityReactions['curious']?.length || 0) > 0 && (
                       <span className="text-sm text-muted-foreground">
-                        {(reflection.curiosityReactions[reflection.id] || 0)} taps
+                        {reflection.curiosityReactions['curious']?.length || 0} taps
                       </span>
                     )}
                   </div>
